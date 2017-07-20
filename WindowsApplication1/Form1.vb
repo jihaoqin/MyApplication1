@@ -207,7 +207,7 @@ Public Class Form1
         Dim OE As DenseMatrix = OriO.Inverse() * OriE
 
         Dim length As Double = OE(0, 3)
-        Dim angle As Double = getAngelRad(-1 * rotationFlag, OE(2, 3), OE(1, 3)) '好好考虑下这个函数
+        Dim angle As Double = getAngelRad(rotationFlag, OE(1, 3), OE(2, 3)) '好好考虑下这个函数
         Dim alpha_b As Double = Math.Acos(Math.Abs(dir_b * AB_inAxis) / (dir_b.L2Norm * AB_inAxis.L2Norm))
         Dim alpha_e As Double = Math.Acos(Math.Abs(dir_e * AB_inAxis) / (dir_e.L2Norm * AB_inAxis.L2Norm))
         Dim R As Double = (pb - O).L2Norm
@@ -221,11 +221,21 @@ Public Class Form1
         For i = 0 To O_points_list.Count - 1
             Ori_points_list(i) = DenseVector.OfArray(New Double() {Ori_points_list(i)(0), Ori_points_list(i)(1), Ori_points_list(i)(2)})
         Next
+        Dim spline As HybridShapeSpline = fac.AddNewSpline()
+        Dim partBody As Body = partDocument1.Part.Bodies.GetItem("PartBody")
+        Dim support_spline As HybridShapeAssemble = partBody.HybridShapes.GetItem("Join.1")
+        partDocument1.Part.Bodies.
+        spline.SetClosing(0)
+        spline.SetSplineType(0)
+        spline.SetSupport(support_spline)
         For Each Ori_point_vec In Ori_points_list
             Dim point_new As HybridShapePointCoord = fac.AddNewPointCoord(Ori_point_vec(0), Ori_point_vec(1), Ori_point_vec(2))
-            partDocument1.Part.Bodies.Item("PartBody").InsertHybridShape(point_new)
+            partBody.InsertHybridShape(point_new)
+            spline.AddPointWithConstraintExplicit(point_new, Nothing, -1, 1, Nothing, 0)
             partDocument1.Part.InWorkObject = point_new
         Next
+        partDocument1.Part.Bodies.GetItem("PartBody").InsertHybridShape(spline)
+        partDocument1.Part.InWorkObject = spline
         partDocument1.Part.Update()
     End Sub
 

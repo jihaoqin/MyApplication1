@@ -44,6 +44,7 @@ Namespace Myunities
             End If
             Dim alpha_01 As List(Of Double) = linspace(alpha_0, alpha_1, num_alpha_01).ToList()
             Dim alpha_12 As List(Of Double) = linspace(alpha_1, alpha_2, num_alpha_12).ToList()
+            alpha_12.RemoveAt(0)
             For Each alpha_i In alpha_01
                 Dim x_i As Double = r / lamda_1 * Math.Abs(1 / Math.Sin(alpha_i) - 1 / Math.Sin(alpha_0))
                 Dim angle_0i As Double = 1 / lamda_1 * Math.Abs((Math.Log(Math.Tan(alpha_i / 2))) - Math.Log(Math.Tan(alpha_0 / 2)))
