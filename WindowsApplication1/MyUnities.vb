@@ -1,8 +1,193 @@
 ﻿Imports MathNet.Numerics.LinearAlgebra.Double
 Imports System.Exception
+Imports MECMOD
+Imports HybridShapeTypeLib
+Imports SPATypeLib
+Imports INFITF
 Namespace Myunities
 
     Public Class MyUnity
+        Public Shared Function getChushaFrameFromLuosha(frames_luosha As List(Of DenseMatrix), points_chusha As List(Of Point)) As List(Of DenseMatrix)
+            Dim frames_chusha As List(Of DenseMatrix) = frames_luosha
+            Dim pos_chusha As DenseVector
+            Dim point_i As Point
+            Dim frame As DenseMatrix
+            For i = 0 To frames_chusha.Count - 1
+                frame = frames_luosha(i)
+                point_i = points_chusha(i)
+                point_i.Compute()
+                pointToVector(points_chusha(i))
+                pos_chusha = pointToVector(point_i)
+                setOrigin(frame, pos_chusha)
+                frames_chusha(i) = frame
+            Next
+            Return frames_chusha
+        End Function
+        Public Shared Function getChushaPointList(partdocument1 As PartDocument, points_luosha As List(Of Point),
+                                                  curve As HybridShapeAssemble, envelop As HybridShapeScaling) As List(Of Point)
+            Dim hash_envelop As Integer = envelop.GetHashCode()
+            Dim my_fact As HybridShapeFactory = partdocument1.Part.HybridShapeFactory
+            Dim my_bench As SPATypeLib.SPAWorkbench = partdocument1.GetWorkbench("SPAWorkbench")
+            Dim partBody As Body = partdocument1.Part.Bodies.Item(1)
+            Dim tan_line As Line
+            Dim intersection_i As HybridShapeIntersection
+            Dim near_i As HybridShapeNear
+            Dim point_i As Point
+            Dim pos()
+            ReDim pos(2)
+            Dim points_chusha As List(Of Point) = New List(Of Point)
+            For i = 0 To points_luosha.Count - 1
+                tan_line = getTanLineByPointIndex(partdocument1, points_luosha, i, curve）
+                tan_line.Compute()
+                intersection_i = my_fact.AddNewIntersection(tan_line, envelop)
+                intersection_i.Compute()
+                'partBody.InsertHybridShape(intersection_i)
+                near_i = my_fact.AddNewNear(intersection_i, points_luosha(i))
+                near_i.Compute()
+                'partBody.InsertHybridShape(near_i) 'near 之前要更新work object? 估计还是要先添加后删除才有效
+                my_bench.GetMeasurable(near_i).GetPoint(pos)
+                point_i = my_fact.AddNewPointCoord(pos(0), pos(1), pos(2))
+                point_i.Compute()
+                points_chusha.Add(point_i)
+            Next
+            Return points_chusha
+        End Function
+        Public Shared Function getInterFrameListWithSurface(partDocument1 As PartDocument, frame_input As List(Of DenseMatrix),
+                                                            surface As HybridShapeAssemble) As List(Of DenseMatrix)
+            Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
+        End Function
+        Public Shared Function getFrameListOnSurface(partDocument1 As PartDocument, ByRef point_list As List(Of Point),
+                                                     surface As HybridShapeAssemble, curve As HybridShapeAssemble) As List(Of DenseMatrix)
+            Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
+            Dim frame_list As List(Of DenseMatrix) = New List(Of DenseMatrix)
+            Dim normal_vec As DenseVector
+            Dim tan_vec As DenseVector
+            Dim third_vec As DenseVector
+            Dim origin As DenseVector
+            For i = 0 To point_list.Count - 1
+                normal_vec = getNormalVecOut(partDocument1, point_list(i), surface)
+                tan_vec = getTanVecByPointIndex(partDocument1, point_list, i, curve)
+                third_vec = crossProduct(tan_vec, normal_vec)
+                origin = pointToVector(point_list(i))
+                Dim frame As DenseMatrix = New DenseMatrix(4)
+                setX(frame, tan_vec)
+                setY(frame, normal_vec)
+                setZ(frame, third_vec)
+                setOrigin(frame, origin)
+                frame_list.Add(frame)
+            Next
+            Return frame_list
+        End Function
+
+        Public Shared Function getTanLineByPointIndex(partDocument1 As PartDocument, point_list As List(Of Point),
+                                                      index As Integer, curve As HybridShapeAssemble) As Line
+            Dim nearlyTan_vec As DenseVector
+            Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
+            If index = 0 Then
+                nearlyTan_vec = pointToVector(point_list(1)) - pointToVector(point_list(0))
+            Else
+                nearlyTan_vec = pointToVector(point_list(index)) - pointToVector(point_list(index - 1))
+            End If
+            Dim tan_vec As DenseVector
+            Dim tan_line As HybridShapeLineTangency
+            Dim dir()
+            ReDim dir(2)
+            tan_line = my_fact.AddNewLineTangency(curve, point_list.ElementAt(index), 100000, 0, False)
+            tan_line.Compute()
+            tan_line.GetDirection(dir)
+            tan_vec = DenseVector.OfArray(New Double() {dir(0), dir(1), dir(2)})
+            If tan_vec * nearlyTan_vec > 0 Then
+                Return tan_line
+            Else
+                tan_line = my_fact.AddNewLineTangency(curve, point_list(index), 100000, 0, True)
+                tan_line.Compute()
+                Return tan_line
+            End If
+        End Function
+
+        Private Shared Function getTanVecByPointIndex(partDocument1 As PartDocument, point_list As List(Of Point),
+                                                      index As Integer, curve As HybridShapeAssemble) As DenseVector
+            Dim tan_vec As DenseVector
+            Dim dir()
+            ReDim dir(2)
+            Dim tan_line As Line = getTanLineByPointIndex(partDocument1, point_list, index, curve)
+            tan_line.Compute()
+            tan_line.GetDirection(dir)
+            tan_vec = DenseVector.OfArray(New Double() {dir(0), dir(1), dir(2)})
+            Return tan_vec
+        End Function
+
+        Public Shared Function pointToVector(point As Point) As DenseVector
+            Dim ordinate()
+            ReDim ordinate(2)
+            point.Compute()
+            point.GetCoordinates(ordinate)
+            Dim vec As DenseVector = DenseVector.OfArray(New Double() {ordinate(0), ordinate(1), ordinate(2)})
+            Return vec
+        End Function
+
+        Private Shared Function getNormalVecOut(partDocument1 As PartDocument, point As Point, surface As HybridShapeAssemble) As DenseVector
+            Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
+            Dim line_normal As HybridShapeLineNormal = my_fact.AddNewLineNormal(surface, point, 10, 0, False)
+            line_normal.Compute()
+            Dim dir
+            ReDim dir(2)
+            line_normal.GetDirection(dir)
+            Dim normal_vec As DenseVector = DenseVector.OfArray(New Double() {dir(0), dir(1), dir(2)})
+            Dim point_ordinate()
+            ReDim point_ordinate(2)
+            point.Compute()
+            point.GetCoordinates(point_ordinate)
+            Dim point_vec As DenseVector = DenseVector.OfArray(New Double() {point_ordinate(0), point_ordinate(1), point_ordinate(2)})
+            If normal_vec * point_vec < 0 Then
+                normal_vec.Multiply(-1)
+            End If
+            Return normal_vec.Normalize(2)
+        End Function
+
+
+        Public Shared Function getPointListOnCurve(partDocument1 As PartDocument, point_begin As Point,
+                                                   curve As HybridShapeAssemble, distance As Double) As List(Of Point)
+            Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
+            Dim false_point As HybridShapePointOnCurve = my_fact.AddNewPointOnCurveFromPercent(curve, 0, False)
+            false_point.Compute()
+            Dim false_ordinate()
+            ReDim false_ordinate(2)
+            false_point.GetCoordinates(false_ordinate)
+            Dim false_point_vec As DenseVector = DenseVector.OfArray(New Double() {false_ordinate(0), false_ordinate(1), false_ordinate(2)})
+
+            Dim true_point As Point = my_fact.AddNewPointOnCurveFromPercent(curve, 0.5, True)
+            true_point.Compute()
+            Dim true_ordinate()
+            ReDim true_ordinate(2)
+            true_point.GetCoordinates(true_ordinate)
+            Dim true_point_vec As DenseVector = DenseVector.OfArray(New Double() {true_ordinate(0), true_ordinate(1), true_ordinate(2)})
+
+            point_begin.Compute()
+            Dim begin_ordinate()
+            ReDim begin_ordinate(2)
+            point_begin.GetCoordinates(begin_ordinate)
+            Dim begin_vec As DenseVector = DenseVector.OfArray(New Double() {begin_ordinate(0), begin_ordinate(1), begin_ordinate(2)})
+
+            Dim flag As Boolean
+            If (begin_vec - false_point_vec).L2Norm < (begin_vec - true_point_vec).L2Norm Then
+                flag = False
+            Else
+                flag = True
+            End If
+
+            Dim my_bench As SPAWorkbench = partDocument1.GetWorkbench("SPAWorkbench")
+            Dim length_curve = my_bench.GetMeasurable(curve).Length
+            Dim num_point As Integer = length_curve / distance + 1
+            Dim point_list As List(Of Point) = New List(Of Point)
+            Dim point As Point
+            For i = 0 To num_point - 1
+                Dim distance_i As Double = distance * i
+                point = my_fact.AddNewPointOnCurveFromDistance(curve, distance_i, flag)
+                point_list.Add(point)
+            Next
+            Return point_list
+        End Function
 
         Public Shared Function getPointsList(alpha_0 As Double, alpha_2 As Double, L As Double, r As Double,
                                              angle As Double, rotationFlag As Integer, lamda_max As Double) As List(Of DenseVector)
@@ -25,7 +210,7 @@ Namespace Myunities
             Next
             solutions_set = MyUnity.filterSolutionsSet(solutions_set, lamda_max)
             Dim solution As DenseVector = MyUnity.getSolutionByCond(solutions_set)
-            Dim points_list As List(Of DenseVector) = MyUnity.getPointsListBySolution(alpha_0, alpha_2, solution, r, -1)
+            Dim points_list As List(Of DenseVector) = MyUnity.getPointsListBySolution(alpha_0, alpha_2, solution, r, rotationFlag)
             Return points_list
         End Function
         Public Shared Function getPointsListBySolution(alpha_0 As Double, alpha_2 As Double, solution As DenseVector, r As Double, rotationFlag As Integer) As List(Of DenseVector)
@@ -176,7 +361,138 @@ Namespace Myunities
             Next
             Return result
         End Function
+        Public Shared Function crossProduct(left As DenseVector, right As DenseVector) As DenseVector
+            If (left.Count <> 3 OrElse right.Count <> 3) Then
+                Dim Message As String = "Vectors must have a length of 3."
+                Throw New Exception(Message)
+            End If
+            Dim result As DenseVector = DenseVector.OfArray(New Double() {0, 0, 0})
+            result(0) = left(1) * right(2) - left(2) * right(1)
+            result(1) = -left(0) * right(2) + left(2) * right(0)
+            result(2) = left(0) * right(1) - left(1) * right(0)
+            Return result
+        End Function
+        Public Shared Sub setOrigin(ByRef matrix As DenseMatrix, origin As Double())
+            If origin.Length = 3 Then
+                origin = New Double() {origin(0), origin(1), origin(2), 1}
+                matrix.SetColumn(3, origin)
+            ElseIf origin.Length = 4 Then
+                matrix.SetColumn(3, origin)
+            Else
+                Dim Message As String = "Vectors must have a length of 3 or 4."
+                Throw New Exception(Message)
+            End If
+        End Sub
+        Public Shared Sub setOrigin(ByRef matrix As DenseMatrix, origin As DenseVector)
+            Dim origin_Array As Double() = origin.ToArray()
+            setOrigin(matrix, origin_Array)
+        End Sub
+        Public Shared Function getOrigin(ByRef matrix As DenseMatrix) As DenseVector
+            Dim origin As DenseVector = DenseVector.OfArray(New Double() {matrix(0, 3), matrix(1, 3), matrix(2, 3)})
+            Return origin
+        End Function
+        Public Shared Function getMatrixByOrigin(ByRef origin As DenseVector) As DenseMatrix
+            Dim matrix As DenseMatrix = unitCoordinate()
+            setOrigin(matrix, origin)
+            Return matrix
+        End Function
+        Public Shared Function unitCoordinate() As DenseMatrix
+            Dim matrix As DenseMatrix = New DenseMatrix(4)
+            matrix(0, 0) = 1
+            matrix(1, 1) = 1
+            matrix(2, 2) = 1
+            matrix(3, 3) = 1
+            Return matrix
+        End Function
+        Public Shared Sub setX(ByRef matrix As DenseMatrix, X As Double())
+            If X.Length = 3 Then
+                X = New Double() {X(0), X(1), X(2), 0}
+                matrix.SetColumn(0, X)
+            ElseIf X.Length = 4 Then
+                matrix.SetColumn(0, X)
+            Else
+                Dim Message As String = "Vectors must have a length of 3 or 4."
+                Throw New Exception(Message)
+            End If
+        End Sub
+        Public Shared Sub setX(ByRef matrix As DenseMatrix, X As DenseVector)
+            Dim X_array As Double() = X.ToArray()
+            setX(matrix, X_array)
+        End Sub
+        Public Shared Function getX(ByRef matrix As DenseMatrix) As DenseVector
+            Dim X As DenseVector = DenseVector.OfArray(New Double() {matrix(0, 0), matrix(1, 0), matrix(2, 0)})
+            Return X
+        End Function
 
+        Public Shared Sub setY(ByRef matrix As DenseMatrix, Y As Double())
+            If Y.Length = 3 Then
+                Y = New Double() {Y(0), Y(1), Y(2), 0}
+                matrix.SetColumn(1, Y)
+            ElseIf Y.Length = 4 Then
+                matrix.SetColumn(1, Y)
+            Else
+                Dim Message As String = "Vectors must have a length of 3 or 4."
+                Throw New Exception(Message)
+            End If
+        End Sub
+        Public Shared Sub setY(ByRef matrix As DenseMatrix, Y As DenseVector)
+            Dim Y_array As Double() = Y.ToArray()
+            setY(matrix, Y_array)
+        End Sub
+        Public Shared Function getY(ByRef matrix As DenseMatrix) As DenseVector
+            Dim Y As DenseVector = DenseVector.OfArray(New Double() {matrix(0, 1), matrix(1, 1), matrix(2, 1)})
+            Return Y
+        End Function
+
+        Public Shared Sub setZ(ByRef matrix As DenseMatrix, Z As Double())
+            If Z.Length = 3 Then
+                Z = New Double() {Z(0), Z(1), Z(2), 0}
+                matrix.SetColumn(2, Z)
+            ElseIf Z.Length = 4 Then
+                matrix.SetColumn(2, Z)
+            Else
+                Dim Message As String = "Vectors must have a length of 3 or 4."
+                Throw New Exception(Message)
+            End If
+        End Sub
+        Public Shared Sub setZ(ByRef matrix As DenseMatrix, Z As DenseVector)
+            Dim Z_array As Double() = Z.ToArray()
+            setZ(matrix, Z_array)
+        End Sub
+        Public Shared Function getZ(ByRef matrix As DenseMatrix) As DenseVector
+            Dim Z As DenseVector = DenseVector.OfArray(New Double() {matrix(0, 2), matrix(1, 2), matrix(2, 2)})
+            Return Z
+        End Function
+
+        Public Shared Function getAngelRad(rotationFlag As Double, y As Double, z As Double) As Double
+            If y ^ 2 + z ^ 2 = 0 Then
+                Dim message As String = "norm of input equals to 0"
+                Throw New Exception(message)
+            End If
+            Dim angle As Double
+            If y = 0 Then
+                If z > 0 Then
+                    angle = Math.PI / 2
+                Else
+                    angle = Math.PI / -2
+                End If
+            End If
+
+            If y > 0 AndAlso z >= 0 Then
+                angle = Math.Atan(z / y)
+            ElseIf y < 0 AndAlso z >= 0 Then
+                angle = Math.Atan(z / y) + Math.PI
+            ElseIf y < 0 AndAlso z < 0 Then
+                angle = Math.Atan(z / y) + Math.PI
+            ElseIf y > 0 AndAlso z < 0 Then
+                angle = Math.Atan(z / y) + Math.PI * 2
+            End If
+            If rotationFlag = 1 Then
+                Return angle
+            Else
+                Return 2 * Math.PI - angle
+            End If
+        End Function
     End Class
 
 End Namespace

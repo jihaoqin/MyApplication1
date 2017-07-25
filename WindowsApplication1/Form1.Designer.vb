@@ -24,6 +24,8 @@ Partial Class Form1
     Private Sub InitializeComponent()
         Me.Button1 = New System.Windows.Forms.Button()
         Me.TextBox1 = New System.Windows.Forms.TextBox()
+        Me.Button2 = New System.Windows.Forms.Button()
+        Me.TextBox2 = New System.Windows.Forms.TextBox()
         Me.SuspendLayout()
         '
         'Button1
@@ -31,9 +33,9 @@ Partial Class Form1
         Me.Button1.Location = New System.Drawing.Point(16, 44)
         Me.Button1.Margin = New System.Windows.Forms.Padding(4)
         Me.Button1.Name = "Button1"
-        Me.Button1.Size = New System.Drawing.Size(100, 43)
+        Me.Button1.Size = New System.Drawing.Size(119, 43)
         Me.Button1.TabIndex = 0
-        Me.Button1.Text = "根据提示选择"
+        Me.Button1.Text = "生成模板线"
         Me.Button1.UseVisualStyleBackColor = True
         Me.Button1.UseWaitCursor = True
         '
@@ -43,12 +45,32 @@ Partial Class Form1
         Me.TextBox1.Name = "TextBox1"
         Me.TextBox1.Size = New System.Drawing.Size(107, 25)
         Me.TextBox1.TabIndex = 1
+        Me.TextBox1.UseWaitCursor = True
+        '
+        'Button2
+        '
+        Me.Button2.Location = New System.Drawing.Point(16, 132)
+        Me.Button2.Name = "Button2"
+        Me.Button2.Size = New System.Drawing.Size(119, 36)
+        Me.Button2.TabIndex = 2
+        Me.Button2.Text = "生成出纱点"
+        Me.Button2.UseVisualStyleBackColor = True
+        '
+        'TextBox2
+        '
+        Me.TextBox2.Location = New System.Drawing.Point(204, 140)
+        Me.TextBox2.Name = "TextBox2"
+        Me.TextBox2.Size = New System.Drawing.Size(107, 25)
+        Me.TextBox2.TabIndex = 3
+        Me.TextBox2.UseWaitCursor = True
         '
         'Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(8.0!, 15.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.ClientSize = New System.Drawing.Size(379, 326)
+        Me.Controls.Add(Me.TextBox2)
+        Me.Controls.Add(Me.Button2)
         Me.Controls.Add(Me.TextBox1)
         Me.Controls.Add(Me.Button1)
         Me.Margin = New System.Windows.Forms.Padding(4)
@@ -61,4 +83,6 @@ Partial Class Form1
     End Sub
     Friend WithEvents Button1 As Button
     Friend WithEvents TextBox1 As TextBox
+    Friend WithEvents Button2 As Button
+    Friend WithEvents TextBox2 As TextBox
 End Class

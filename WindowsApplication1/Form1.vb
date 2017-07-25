@@ -85,6 +85,7 @@ Imports MathNet.Numerics.LinearAlgebra.Double
 Imports tools
 Imports System
 Imports WindowsApplication1.Myunities
+Imports WindowsApplication1.Myunities.MyUnity
 
 
 
@@ -93,9 +94,8 @@ Imports WindowsApplication1.Myunities
 Public Class Form1
     Dim CATIA As Application
     Dim partDocument1 As PartDocument
-
-
     Dim lamda_max As Double
+    Dim distance_point As Double
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         '-----------------------------------------------------------------------
@@ -109,10 +109,10 @@ Public Class Form1
         End Try
         CATIA.Visible = True
         partDocument1 = CATIA.ActiveDocument
-
         lamda_max = 0.2
         TextBox1.Text = lamda_max.ToString()
-
+        distance_point = 20
+        TextBox2.Text = distance_point.ToString()
     End Sub
 
 
@@ -180,7 +180,7 @@ Public Class Form1
             x = -1 * x
         End If
         Dim y As DenseVector = (pb - O).Normalize(2)
-        Dim z As DenseVector = crossProduct(x, y)
+        Dim z As DenseVector = MyUnity.crossProduct(x, y)
 
         If x * dir_b < 0 Then
             dir_b = dir_b * -1
@@ -197,7 +197,7 @@ Public Class Form1
         setY(OriO, y)
         setZ(OriO, z)
         Dim rotationFlag As Integer
-        If crossProduct(pb, dir_b) * x > 0 Then
+        If MyUnity.crossProduct(pb, dir_b) * x > 0 Then
             rotationFlag = 1
         Else
             rotationFlag = -1
@@ -207,7 +207,7 @@ Public Class Form1
         Dim OE As DenseMatrix = OriO.Inverse() * OriE
 
         Dim length As Double = OE(0, 3)
-        Dim angle As Double = getAngelRad(rotationFlag, OE(1, 3), OE(2, 3)) '好好考虑下这个函数
+        Dim angle As Double = getAngelRad(rotationFlag, OE(1, 3), OE(2, 3))
         Dim alpha_b As Double = Math.Acos(Math.Abs(dir_b * AB_inAxis) / (dir_b.L2Norm * AB_inAxis.L2Norm))
         Dim alpha_e As Double = Math.Acos(Math.Abs(dir_e * AB_inAxis) / (dir_e.L2Norm * AB_inAxis.L2Norm))
         Dim R As Double = (pb - O).L2Norm
@@ -224,7 +224,6 @@ Public Class Form1
         Dim spline As HybridShapeSpline = fac.AddNewSpline()
         Dim partBody As Body = partDocument1.Part.Bodies.GetItem("PartBody")
         Dim support_spline As HybridShapeAssemble = partBody.HybridShapes.GetItem("Join.1")
-        partDocument1.Part.Bodies.
         spline.SetClosing(0)
         spline.SetSplineType(0)
         spline.SetSupport(support_spline)
@@ -238,146 +237,72 @@ Public Class Form1
         partDocument1.Part.InWorkObject = spline
         partDocument1.Part.Update()
     End Sub
+    Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
+        Dim partBody As Body = partDocument1.Part.Bodies.GetItem("PartBody")
+        Dim MyVPOrigin
+        ReDim MyVPOrigin(2)
+        CATIA.ActiveWindow.ActiveViewer.Viewpoint3D.GetOrigin(MyVPOrigin)
+        Dim my_selection As Selection = partDocument1.Selection
+        my_selection.Clear()
+        Dim sFilter(0)
+        sFilter(0) = "Point"
+        my_selection.SelectElement2(sFilter, "请选择曲线的起始点", False)
+        Dim point_0 As Point = my_selection.Item(1).Value
 
-    Private Function crossProduct(left As DenseVector, right As DenseVector) As DenseVector
-        If (left.Count <> 3 OrElse right.Count <> 3) Then
-            Dim Message As String = "Vectors must have a length of 3."
-            Throw New Exception(Message)
-        End If
-        Dim result As DenseVector = DenseVector.OfArray(New Double() {0, 0, 0})
+        my_selection.Clear()
+        sFilter(0) = "MonoDim"
+        my_selection.SelectElement2(sFilter, "请选择曲线", False)
+        Dim curve As HybridShapeAssemble = my_selection.Item(1).Value
 
-        result(0) = left(1) * right(2) - left(2) * right(1)
-        result(1) = -left(0) * right(2) + left(2) * right(0)
-        result(2) = left(0) * right(1) - left(1) * right(0)
+        my_selection.Clear()
+        sFilter(0) = "BiDim"
+        my_selection.SelectElement2(sFilter, "请选择芯模面", False)
+        Dim mandrel As HybridShapeAssemble = my_selection.Item(1).Value
 
-        Return result
-    End Function
-    Private Function unitCoordinate() As DenseMatrix
-        Dim matrix As DenseMatrix = New DenseMatrix(4)
-        matrix(0, 0) = 1
-        matrix(1, 1) = 1
-        matrix(2, 2) = 1
-        matrix(3, 3) = 1
-        Return matrix
-    End Function
-    Private Sub setOrigin(ByRef matrix As DenseMatrix, origin As Double())
-        If origin.Length = 3 Then
-            origin = New Double() {origin(0), origin(1), origin(2), 1}
-            matrix.SetColumn(3, origin)
-        ElseIf origin.Length = 4 Then
-            matrix.SetColumn(3, origin)
-        Else
-            Dim Message As String = "Vectors must have a length of 3 or 4."
-            Throw New Exception(Message)
-        End If
-
+        my_selection.Clear()
+        my_selection.SelectElement2(sFilter, "请选择出纱点包络面", False)
+        Dim envelope As HybridShapeScaling = my_selection.Item(1).Value
+        Dim hash_envelope As Integer = envelope.GetHashCode()
+        Dim points_luosha As List(Of Point) = New List(Of Point)
+        Dim points_chusha As List(Of Point) = New List(Of Point)
+        Dim frames_luosha As List(Of DenseMatrix) = New List(Of DenseMatrix)
+        Dim frames_chusha As List(Of DenseMatrix) = New List(Of DenseMatrix)
+        points_luosha = MyUnity.getPointListOnCurve(partDocument1, point_0, curve, distance_point)
+        'For Each elem In points_luosha
+        '    partBody.InsertHybridShape(elem)
+        'Next
+        Dim temp_vec As DenseVector
+        For Each point In points_luosha
+            temp_vec = MyUnity.pointToVector(point)
+        Next
+        points_chusha = MyUnity.getChushaPointList(partDocument1, points_luosha, curve, envelope)
+        For Each point In points_chusha
+            partBody.InsertHybridShape(point)
+        Next
+        For Each point In points_chusha
+            MyUnity.pointToVector(point)
+        Next
+        frames_luosha = MyUnity.getFrameListOnSurface(partDocument1, points_luosha, mandrel, curve)
+        frames_chusha = MyUnity.getChushaFrameFromLuosha(frames_luosha, points_chusha)
+        For Each point In points_luosha
+            point.Compute()
+            partBody.InsertHybridShape(point)
+        Next
+        partDocument1.Part.Update()
     End Sub
-    Private Sub setOrigin(ByRef matrix As DenseMatrix, origin As DenseVector)
-        Dim origin_Array As Double() = origin.ToArray()
-        setOrigin(matrix, origin_Array)
-    End Sub
-    Private Function getOrigin(ByRef matrix As DenseMatrix) As DenseVector
-        Dim origin As DenseVector = DenseVector.OfArray(New Double() {matrix(0, 3), matrix(1, 3), matrix(2, 3)})
-        Return origin
-    End Function
-    Private Function getMatrixByOrigin(ByRef origin As DenseVector) As DenseMatrix
-        Dim matrix As DenseMatrix = unitCoordinate()
-        setOrigin(matrix, origin)
-    End Function
 
-    Private Sub setX(ByRef matrix As DenseMatrix, X As Double())
-        If X.Length = 3 Then
-            X = New Double() {X(0), X(1), X(2), 0}
-            matrix.SetColumn(0, X)
-        ElseIf X.Length = 4 Then
-            matrix.SetColumn(0, X)
-        Else
-            Dim Message As String = "Vectors must have a length of 3 or 4."
-            Throw New Exception(Message)
-        End If
+    Private Sub TextBox2_TextChanged(sender As Object, e As EventArgs) Handles TextBox2.TextChanged
+        distance_point = Convert.ToDouble(TextBox2.Text)
     End Sub
-    Private Sub setX(ByRef matrix As DenseMatrix, X As DenseVector)
-        Dim X_array As Double() = X.ToArray()
-        setX(matrix, X_array)
-    End Sub
-    Private Function getX(ByRef matrix As DenseMatrix) As DenseVector
-        Dim X As DenseVector = DenseVector.OfArray(New Double() {matrix(0, 0), matrix(1, 0), matrix(2, 0)})
-        Return X
-    End Function
 
-    Private Sub setY(ByRef matrix As DenseMatrix, Y As Double())
-        If Y.Length = 3 Then
-            Y = New Double() {Y(0), Y(1), Y(2), 0}
-            matrix.SetColumn(1, Y)
-        ElseIf Y.Length = 4 Then
-            matrix.SetColumn(1, Y)
-        Else
-            Dim Message As String = "Vectors must have a length of 3 or 4."
-            Throw New Exception(Message)
-        End If
-    End Sub
-    Private Sub setY(ByRef matrix As DenseMatrix, Y As DenseVector)
-        Dim Y_array As Double() = Y.ToArray()
-        setY(matrix, Y_array)
-    End Sub
-    Private Function getY(ByRef matrix As DenseMatrix) As DenseVector
-        Dim Y As DenseVector = DenseVector.OfArray(New Double() {matrix(0, 1), matrix(1, 1), matrix(2, 1)})
-        Return Y
-    End Function
 
-    Private Sub setZ(ByRef matrix As DenseMatrix, Z As Double())
-        If Z.Length = 3 Then
-            Z = New Double() {Z(0), Z(1), Z(2), 0}
-            matrix.SetColumn(2, Z)
-        ElseIf Z.Length = 4 Then
-            matrix.SetColumn(2, Z)
-        Else
-            Dim Message As String = "Vectors must have a length of 3 or 4."
-            Throw New Exception(Message)
-        End If
-    End Sub
-    Private Sub setZ(ByRef matrix As DenseMatrix, Z As DenseVector)
-        Dim Z_array As Double() = Z.ToArray()
-        setZ(matrix, Z_array)
-    End Sub
-    Private Function getZ(ByRef matrix As DenseMatrix) As DenseVector
-        Dim Z As DenseVector = DenseVector.OfArray(New Double() {matrix(0, 2), matrix(1, 2), matrix(2, 2)})
-        Return Z
-    End Function
 
-    Private Function getAngelRad(rotationFlag As Double, y As Double, z As Double) As Double
-        If y ^ 2 + z ^ 2 = 0 Then
-            Dim message As String = "norm of input equals to 0"
-            Throw New Exception(message)
-        End If
-        Dim angle As Double
-        If y = 0 Then
-            If z > 0 Then
-                angle = Math.PI / 2
-            Else
-                angle = Math.PI / -2
-            End If
-        End If
-
-        If y > 0 AndAlso z >= 0 Then
-            angle = Math.Atan(z / y)
-        ElseIf y < 0 AndAlso z >= 0 Then
-            angle = Math.Atan(z / y) + Math.PI
-        ElseIf y < 0 AndAlso z < 0 Then
-            angle = Math.Atan(z / y) + Math.PI
-        ElseIf y > 0 AndAlso z < 0 Then
-            angle = Math.Atan(z / y) + Math.PI * 2
-        End If
-        If rotationFlag = 1 Then
-            Return angle
-        Else
-            Return 2 * Math.PI - angle
-        End If
-    End Function
 
     Private Sub TextBox1_TextChanged(sender As Object, e As EventArgs) Handles TextBox1.TextChanged
         lamda_max = Convert.ToDouble(TextBox1.Text)
     End Sub
+
+
 End Class
 
 
