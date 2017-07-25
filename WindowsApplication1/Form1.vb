@@ -96,6 +96,7 @@ Public Class Form1
     Dim partDocument1 As PartDocument
     Dim lamda_max As Double
     Dim distance_point As Double
+    Dim frames_chusha As List(Of DenseMatrix)
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         '-----------------------------------------------------------------------
@@ -113,6 +114,7 @@ Public Class Form1
         TextBox1.Text = lamda_max.ToString()
         distance_point = 20
         TextBox2.Text = distance_point.ToString()
+        Dim frames_chusha As List(Of DenseMatrix) = New List(Of DenseMatrix)
     End Sub
 
 
@@ -143,9 +145,9 @@ Public Class Form1
 
 
         myselection.Clear()
-        sFilter(0) = "Point"
+        sFilter(0) = "ZeroDim"
         myselection.SelectElement2(sFilter, "请选择起点", False)
-        Dim point_begin As Point = myselection.Item(1).Value
+        Dim point_begin As Object = myselection.Item(1).Value
         Dim pos_pointb(2)
         Workbench.GetMeasurable(point_begin).GetPoint(pos_pointb)
         Dim pb As DenseVector = DenseVector.OfArray(New Double() {pos_pointb(0), pos_pointb(1), pos_pointb(2)})
@@ -159,9 +161,9 @@ Public Class Form1
 
 
         myselection.Clear()
-        sFilter(0) = "Point"
+        sFilter(0) = "ZeroDim"
         myselection.SelectElement2(sFilter, "请选择终点", False)
-        Dim point_end As Point = myselection.Item(1).Value
+        Dim point_end As Object = myselection.Item(1).Value
         Dim pos_pointe(2)
         Workbench.GetMeasurable(point_end).GetPoint(pos_pointe)
         Dim pe As DenseVector = DenseVector.OfArray(New Double() {pos_pointe(0), pos_pointe(1), pos_pointe(2)})
@@ -172,6 +174,11 @@ Public Class Form1
         Dim direction_e(2)
         Workbench.GetMeasurable(line_e).GetDirection(direction_e)
         Dim dir_e As DenseVector = DenseVector.OfArray(New Double() {direction_e(0), direction_e(1), direction_e(2)})
+
+        myselection.Clear()
+        sFilter(0) = "BiDim"
+        myselection.SelectElement2(sFilter, "请选择支撑面", False)
+        Dim support_spline As HybridShapeAssemble = myselection.Item(1).Value
         '------------------
 
         Dim O As DenseVector = A_inAxis + AB_inAxis * (AB_inAxis * (pb - A_inAxis)) / AB_inAxis.Norm(2) ^ 2
@@ -207,7 +214,7 @@ Public Class Form1
         Dim OE As DenseMatrix = OriO.Inverse() * OriE
 
         Dim length As Double = OE(0, 3)
-        Dim angle As Double = getAngelRad(rotationFlag, OE(1, 3), OE(2, 3))
+        Dim angle As Double = getAngleRad(rotationFlag, OE(1, 3), OE(2, 3))
         Dim alpha_b As Double = Math.Acos(Math.Abs(dir_b * AB_inAxis) / (dir_b.L2Norm * AB_inAxis.L2Norm))
         Dim alpha_e As Double = Math.Acos(Math.Abs(dir_e * AB_inAxis) / (dir_e.L2Norm * AB_inAxis.L2Norm))
         Dim R As Double = (pb - O).L2Norm
@@ -223,27 +230,26 @@ Public Class Form1
         Next
         Dim spline As HybridShapeSpline = fac.AddNewSpline()
         Dim partBody As Body = partDocument1.Part.Bodies.GetItem("PartBody")
-        Dim support_spline As HybridShapeAssemble = partBody.HybridShapes.GetItem("Join.1")
         spline.SetClosing(0)
         spline.SetSplineType(0)
         spline.SetSupport(support_spline)
         For Each Ori_point_vec In Ori_points_list
             Dim point_new As HybridShapePointCoord = fac.AddNewPointCoord(Ori_point_vec(0), Ori_point_vec(1), Ori_point_vec(2))
-            partBody.InsertHybridShape(point_new)
+            point_new.Compute()
+            'partBody.InsertHybridShape(point_new)
             spline.AddPointWithConstraintExplicit(point_new, Nothing, -1, 1, Nothing, 0)
-            partDocument1.Part.InWorkObject = point_new
+            'partDocument1.Part.InWorkObject = point_new
         Next
+        spline.Compute()
         partDocument1.Part.Bodies.GetItem("PartBody").InsertHybridShape(spline)
+
         partDocument1.Part.InWorkObject = spline
         partDocument1.Part.Update()
     End Sub
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
         Dim partBody As Body = partDocument1.Part.Bodies.GetItem("PartBody")
-        Dim MyVPOrigin
-        ReDim MyVPOrigin(2)
-        CATIA.ActiveWindow.ActiveViewer.Viewpoint3D.GetOrigin(MyVPOrigin)
         Dim my_selection As Selection = partDocument1.Selection
-        my_selection.Clear()
+        'my_selection.Clear()
         Dim sFilter(0)
         sFilter(0) = "Point"
         my_selection.SelectElement2(sFilter, "请选择曲线的起始点", False)
@@ -262,32 +268,21 @@ Public Class Form1
         my_selection.Clear()
         my_selection.SelectElement2(sFilter, "请选择出纱点包络面", False)
         Dim envelope As HybridShapeScaling = my_selection.Item(1).Value
-        Dim hash_envelope As Integer = envelope.GetHashCode()
         Dim points_luosha As List(Of Point) = New List(Of Point)
         Dim points_chusha As List(Of Point) = New List(Of Point)
         Dim frames_luosha As List(Of DenseMatrix) = New List(Of DenseMatrix)
-        Dim frames_chusha As List(Of DenseMatrix) = New List(Of DenseMatrix)
         points_luosha = MyUnity.getPointListOnCurve(partDocument1, point_0, curve, distance_point)
-        'For Each elem In points_luosha
-        '    partBody.InsertHybridShape(elem)
-        'Next
-        Dim temp_vec As DenseVector
-        For Each point In points_luosha
-            temp_vec = MyUnity.pointToVector(point)
+        For i = 0 To points_luosha.Count - 1
+            Dim point_i As Point = points_luosha(i)
+            point_i.Compute()
+            partBody.InsertHybridShape(point_i)
         Next
         points_chusha = MyUnity.getChushaPointList(partDocument1, points_luosha, curve, envelope)
         For Each point In points_chusha
             partBody.InsertHybridShape(point)
         Next
-        For Each point In points_chusha
-            MyUnity.pointToVector(point)
-        Next
         frames_luosha = MyUnity.getFrameListOnSurface(partDocument1, points_luosha, mandrel, curve)
         frames_chusha = MyUnity.getChushaFrameFromLuosha(frames_luosha, points_chusha)
-        For Each point In points_luosha
-            point.Compute()
-            partBody.InsertHybridShape(point)
-        Next
         partDocument1.Part.Update()
     End Sub
 
@@ -297,12 +292,27 @@ Public Class Form1
 
 
 
-
     Private Sub TextBox1_TextChanged(sender As Object, e As EventArgs) Handles TextBox1.TextChanged
         lamda_max = Convert.ToDouble(TextBox1.Text)
     End Sub
 
-
+    Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
+        Dim angles_zhuzhou As List(Of Double)
+        Dim flag_rotation As Integer = 1
+        Dim angle As Double
+        Dim absolute_angles As List(Of Double) = New List(Of Double)
+        For Each frame In frames_chusha
+            angle = MyUnity.getAngleRad(flag_rotation, frame(1, 3), frame(2, 3))
+            absolute_angles.Add(angle)
+        Next
+        angles_zhuzhou = MyUnity.connectAngles(absolute_angles)
+        Dim frames_D_chusha As List(Of DenseMatrix) = New List(Of DenseMatrix) 'D代表动坐标系
+        Dim D_J As DenseMatrix
+        For i = 0 To frames_chusha.Count - 1  ' frames_chusha是在静坐标系I中
+            D_J = MyUnity.rotx(angles_zhuzhou(i))
+            frames_D_chusha.Add(D_J * frames_chusha(i))
+        Next
+    End Sub
 End Class
 
 

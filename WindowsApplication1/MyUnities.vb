@@ -180,11 +180,10 @@ Namespace Myunities
             Dim length_curve = my_bench.GetMeasurable(curve).Length
             Dim num_point As Integer = length_curve / distance + 1
             Dim point_list As List(Of Point) = New List(Of Point)
-            Dim point As Point
             For i = 0 To num_point - 1
                 Dim distance_i As Double = distance * i
-                point = my_fact.AddNewPointOnCurveFromDistance(curve, distance_i, flag)
-                point_list.Add(point)
+                Dim point As Point = my_fact.AddNewPointOnCurveFromDistance(curve, distance_i, flag)
+                point_list.Add(Point)
             Next
             Return point_list
         End Function
@@ -346,6 +345,32 @@ Namespace Myunities
             Next
             Return mat
         End Function
+        'Public Shared Function getAbsoluteAngle(frame As DenseMatrix, flag_rotation As Integer) As Double
+        '    'flag_rotation = 1 代表沿着x轴逆时针， -1代表顺时针
+        '    Dim y As Double = frame(1, 3)
+        '    Dim z As Double = frame(2, 3)
+        '    Dim angle As Double
+        '    If y ^ 2 + z ^ 2 <= 0 Then
+        '        Throw New Exception("infinite solutions in origin")
+        '    ElseIf y = 0 AndAlso z > 0 Then
+        '        angle = Math.PI / 2
+        '    ElseIf y = 0 AndAlso z < 0 Then
+        '        angle = Math.PI / -2
+        '    End If
+        '    If y > 0 AndAlso z >= 0 Then
+        '        angle = Math.Atan(z / y)
+        '    ElseIf y < 0 AndAlso z >= 0 Then
+        '        angle = Math.Atan(z / y) + Math.PI / 2
+        '    ElseIf y < 0 AndAlso z <= 0 Then
+        '        angle = Math.Atan(z / y) + Math.PI / 2
+        '    ElseIf y > 0 AndAlso z <= 0 Then
+        '        angle = Math.Atan(z / y) + Math.PI * 2
+        '    End If
+        '    If flag_rotation = -1 Then
+        '        angle = Math.PI * 2 - angle
+        '    End If
+        '    Return angle
+        'End Function
         Private Shared Function linspace(valBegin As Double, valEnd As Double, num As Integer) As DenseVector
             Dim range As DenseVector = New DenseVector(num)
             Dim delta As Double = (valEnd - valBegin) / (num - 1)
@@ -463,8 +488,7 @@ Namespace Myunities
             Dim Z As DenseVector = DenseVector.OfArray(New Double() {matrix(0, 2), matrix(1, 2), matrix(2, 2)})
             Return Z
         End Function
-
-        Public Shared Function getAngelRad(rotationFlag As Double, y As Double, z As Double) As Double
+        Public Shared Function getAngleRad(rotationFlag As Double, y As Double, z As Double) As Double
             If y ^ 2 + z ^ 2 = 0 Then
                 Dim message As String = "norm of input equals to 0"
                 Throw New Exception(message)
@@ -492,6 +516,26 @@ Namespace Myunities
             Else
                 Return 2 * Math.PI - angle
             End If
+        End Function
+        Public Shared Function connectAngles(absolute_angles As List(Of Double)) As List(Of Double)
+            Dim connected_angles As List(Of Double) = absolute_angles
+            For i = 1 To connected_angles.Count - 1
+                Dim delta_angle As Double = absolute_angles(i) - absolute_angles(i - 1)
+                If delta_angle < Math.PI / 4 Then
+                    connected_angles(i) = connected_angles(i - 1) + delta_angle
+                Else
+                    connected_angles(i) = connected_angles(i - 1) + delta_angle + 2 * Math.PI
+                End If
+            Next
+            Return connected_angles
+        End Function
+        Public Shared Function rotx(angle_rad As Double) As DenseMatrix
+            Dim result As DenseMatrix = unitCoordinate()
+            result(1, 1) = Math.Cos(angle_rad)
+            result(2, 1) = Math.Sin(angle_rad)
+            result(1, 2) = Math.Sin(angle_rad) * -1
+            result(2, 2) = Math.Cos(angle_rad)
+            Return result
         End Function
     End Class
 
