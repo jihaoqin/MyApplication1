@@ -27,6 +27,8 @@ Partial Class Form1
         Me.Button2 = New System.Windows.Forms.Button()
         Me.TextBox2 = New System.Windows.Forms.TextBox()
         Me.Button3 = New System.Windows.Forms.Button()
+        Me.SaveFileDialog1 = New System.Windows.Forms.SaveFileDialog()
+        Me.Button4 = New System.Windows.Forms.Button()
         Me.SuspendLayout()
         '
         'Button1
@@ -56,6 +58,7 @@ Partial Class Form1
         Me.Button2.TabIndex = 2
         Me.Button2.Text = "生成出纱点"
         Me.Button2.UseVisualStyleBackColor = True
+        Me.Button2.UseWaitCursor = True
         '
         'TextBox2
         '
@@ -73,12 +76,23 @@ Partial Class Form1
         Me.Button3.TabIndex = 4
         Me.Button3.Text = "后处理"
         Me.Button3.UseVisualStyleBackColor = True
+        Me.Button3.UseWaitCursor = True
+        '
+        'Button4
+        '
+        Me.Button4.Location = New System.Drawing.Point(16, 277)
+        Me.Button4.Name = "Button4"
+        Me.Button4.Size = New System.Drawing.Size(119, 37)
+        Me.Button4.TabIndex = 5
+        Me.Button4.Text = "输出运动数据"
+        Me.Button4.UseVisualStyleBackColor = True
         '
         'Form1
         '
         Me.AutoScaleDimensions = New System.Drawing.SizeF(8.0!, 15.0!)
         Me.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font
         Me.ClientSize = New System.Drawing.Size(379, 326)
+        Me.Controls.Add(Me.Button4)
         Me.Controls.Add(Me.Button3)
         Me.Controls.Add(Me.TextBox2)
         Me.Controls.Add(Me.Button2)
@@ -97,4 +111,6 @@ Partial Class Form1
     Friend WithEvents Button2 As Button
     Friend WithEvents TextBox2 As TextBox
     Friend WithEvents Button3 As Button
+    Friend WithEvents SaveFileDialog1 As SaveFileDialog
+    Friend WithEvents Button4 As Button
 End Class

@@ -97,6 +97,8 @@ Public Class Form1
     Dim lamda_max As Double
     Dim distance_point As Double
     Dim frames_chusha As List(Of DenseMatrix)
+    Dim frames_D_chusha As List(Of DenseMatrix)
+    Dim angles_zhuzhou As List(Of Double)
 
     Private Sub Form1_Load(sender As Object, e As EventArgs) Handles MyBase.Load
         '-----------------------------------------------------------------------
@@ -112,7 +114,7 @@ Public Class Form1
         partDocument1 = CATIA.ActiveDocument
         lamda_max = 0.2
         TextBox1.Text = lamda_max.ToString()
-        distance_point = 20
+        distance_point = 5
         TextBox2.Text = distance_point.ToString()
         Dim frames_chusha As List(Of DenseMatrix) = New List(Of DenseMatrix)
     End Sub
@@ -121,7 +123,6 @@ Public Class Form1
 
 
     Private Sub Button1_Click(sender As Object, e As EventArgs) Handles Button1.Click
-        Dim something As Type = partDocument1.GetType()
         '------------------
         ' 获取初始条件
         Dim myselection As Selection
@@ -152,7 +153,7 @@ Public Class Form1
         Workbench.GetMeasurable(point_begin).GetPoint(pos_pointb)
         Dim pb As DenseVector = DenseVector.OfArray(New Double() {pos_pointb(0), pos_pointb(1), pos_pointb(2)})
         myselection.Clear()
-        sFilter(0) = "Line"
+        sFilter(0) = "MonoDim"
         myselection.SelectElement2(sFilter, "请选择起点方向", False)
         Dim line_b As Line = myselection.Item(1).Value
         Dim direction_b(2)
@@ -168,7 +169,7 @@ Public Class Form1
         Workbench.GetMeasurable(point_end).GetPoint(pos_pointe)
         Dim pe As DenseVector = DenseVector.OfArray(New Double() {pos_pointe(0), pos_pointe(1), pos_pointe(2)})
         myselection.Clear()
-        sFilter(0) = "Line"
+        sFilter(0) = "MonoDim"
         myselection.SelectElement2(sFilter, "请选择终点方向", False)
         Dim line_e As Line = myselection.Item(1).Value
         Dim direction_e(2)
@@ -247,18 +248,24 @@ Public Class Form1
         partDocument1.Part.Update()
     End Sub
     Private Sub Button2_Click(sender As Object, e As EventArgs) Handles Button2.Click
+        '-------------------------
+        '生成出纱点
         Dim partBody As Body = partDocument1.Part.Bodies.GetItem("PartBody")
+        Dim hybridBody As HybridBody = partDocument1.Part.HybridBodies.Add()
+        partDocument1.Part.Update()
         Dim my_selection As Selection = partDocument1.Selection
-        'my_selection.Clear()
+        Dim curves_set As HybridBody
         Dim sFilter(0)
+        my_selection.Clear()
+        sFilter(0) = "HybridBody"
+        my_selection.SelectElement2(sFilter, "请选择曲线的集合", False)
+        curves_set = my_selection.Item(1).Value
+
+        my_selection.Clear()
         sFilter(0) = "Point"
         my_selection.SelectElement2(sFilter, "请选择曲线的起始点", False)
         Dim point_0 As Point = my_selection.Item(1).Value
 
-        my_selection.Clear()
-        sFilter(0) = "MonoDim"
-        my_selection.SelectElement2(sFilter, "请选择曲线", False)
-        Dim curve As HybridShapeAssemble = my_selection.Item(1).Value
 
         my_selection.Clear()
         sFilter(0) = "BiDim"
@@ -268,22 +275,32 @@ Public Class Form1
         my_selection.Clear()
         my_selection.SelectElement2(sFilter, "请选择出纱点包络面", False)
         Dim envelope As HybridShapeScaling = my_selection.Item(1).Value
-        Dim points_luosha As List(Of Point) = New List(Of Point)
-        Dim points_chusha As List(Of Point) = New List(Of Point)
-        Dim frames_luosha As List(Of DenseMatrix) = New List(Of DenseMatrix)
-        points_luosha = MyUnity.getPointListOnCurve(partDocument1, point_0, curve, distance_point)
-        For i = 0 To points_luosha.Count - 1
-            Dim point_i As Point = points_luosha(i)
-            point_i.Compute()
-            partBody.InsertHybridShape(point_i)
+
+        Dim points_luosha_segment As List(Of Point) = New List(Of Point)
+        Dim points_chusha_segment As List(Of Point) = New List(Of Point)
+        Dim frames_luosha_segment As List(Of DenseMatrix) = New List(Of DenseMatrix)
+        Dim frames_chusha_segment As List(Of DenseMatrix) = New List(Of DenseMatrix)
+        frames_chusha = New List(Of DenseMatrix)
+        Dim curve As HybridShapeCurveExplicit
+        For j = 1 To curves_set.HybridShapes.Count
+            curve = curves_set.HybridShapes.Item(j)
+            points_luosha_segment = MyUnity.getPointListOnCurve(partDocument1, point_0, curve, distance_point)
+            point_0 = points_luosha_segment(points_luosha_segment.Count - 1)
+            For i = 0 To points_luosha_segment.Count - 1
+                Dim point_i As Point = points_luosha_segment(i)
+                point_i.Compute()
+                hybridBody.AppendHybridShape(point_i)
+            Next
+            points_chusha_segment = MyUnity.getChushaPointList(partDocument1, points_luosha_segment, curve, envelope)
+            For Each point In points_chusha_segment
+                hybridBody.AppendHybridShape(point)
+            Next
+            frames_luosha_segment = MyUnity.getFrameListOnSurface(partDocument1, points_luosha_segment, mandrel, curve)
+            frames_chusha_segment = MyUnity.getChushaFrameFromLuosha(frames_luosha_segment, points_chusha_segment)
+            MyUnity.appendMatrixList(frames_chusha, frames_chusha_segment)
         Next
-        points_chusha = MyUnity.getChushaPointList(partDocument1, points_luosha, curve, envelope)
-        For Each point In points_chusha
-            partBody.InsertHybridShape(point)
-        Next
-        frames_luosha = MyUnity.getFrameListOnSurface(partDocument1, points_luosha, mandrel, curve)
-        frames_chusha = MyUnity.getChushaFrameFromLuosha(frames_luosha, points_chusha)
         partDocument1.Part.Update()
+        MessageBox.Show("计算完成", "提示", MessageBoxButtons.OKCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1)
     End Sub
 
     Private Sub TextBox2_TextChanged(sender As Object, e As EventArgs) Handles TextBox2.TextChanged
@@ -297,21 +314,38 @@ Public Class Form1
     End Sub
 
     Private Sub Button3_Click(sender As Object, e As EventArgs) Handles Button3.Click
-        Dim angles_zhuzhou As List(Of Double)
         Dim flag_rotation As Integer = 1
         Dim angle As Double
         Dim absolute_angles As List(Of Double) = New List(Of Double)
         For Each frame In frames_chusha
-            angle = MyUnity.getAngleRad(flag_rotation, frame(1, 3), frame(2, 3))
+            'angle = MyUnity.getAngleRad(flag_rotation, frame(1, 3), frame(2, 3))
+            angle = Math.Atan2(frame(2, 3), frame(1, 3))
             absolute_angles.Add(angle)
         Next
         angles_zhuzhou = MyUnity.connectAngles(absolute_angles)
-        Dim frames_D_chusha As List(Of DenseMatrix) = New List(Of DenseMatrix) 'D代表动坐标系
+        frames_D_chusha = New List(Of DenseMatrix) 'D代表动坐标系
         Dim D_J As DenseMatrix
-        For i = 0 To frames_chusha.Count - 1  ' frames_chusha是在静坐标系I中
-            D_J = MyUnity.rotx(angles_zhuzhou(i))
+        For i = 0 To frames_chusha.Count - 1  ' frames_chusha是在静坐标系J中
+            D_J = MyUnity.rotx(-1 * angles_zhuzhou(i))
             frames_D_chusha.Add(D_J * frames_chusha(i))
         Next
+        MessageBox.Show("计算完成", "提示", MessageBoxButtons.OKCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1)
+    End Sub
+
+    Private Sub Button4_Click(sender As Object, e As EventArgs) Handles Button4.Click
+        Dim strFilePath As String = SaveFileDialog1.FileName
+        SaveFileDialog1.FileName = "axis data.txt"
+        SaveFileDialog1.InitialDirectory = "C:\Users\Geeho\Desktop\"
+        SaveFileDialog1.Title = "输出运动数据"
+        SaveFileDialog1.Filter = "txt files (*.txt)|*.txt|All files (*.*)|*.*"
+        SaveFileDialog1.OverwritePrompt = True
+        If SaveFileDialog1.ShowDialog() = DialogResult.OK Then
+            Dim path As String = SaveFileDialog1.FileName.ToString()
+            Dim printer As System.IO.StreamWriter = New System.IO.StreamWriter(path, False, System.Text.Encoding.UTF8)
+            MyUnity.output(printer, angles_zhuzhou, frames_D_chusha)
+            printer.Close()
+        End If
+        MessageBox.Show("计算完成", "提示", MessageBoxButtons.OKCancel, MessageBoxIcon.Question, MessageBoxDefaultButton.Button1)
     End Sub
 End Class
 

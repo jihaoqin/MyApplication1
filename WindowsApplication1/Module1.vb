@@ -1,5 +1,7 @@
 ﻿Imports WindowsApplication1.Myunities
+Imports WindowsApplication1.Myunities.MyUnity
 Imports MathNet.Numerics.LinearAlgebra.Double
+Imports MathNet.Numerics.LinearAlgebra.Factorization
 Module Module1
     Sub Main()
         Dim alpha_0 As Double = Math.PI / 4
@@ -28,6 +30,8 @@ Module Module1
         'solutions_set = MyUnity.filterSolutionsSet(solutions_set, lamda_max)
         'Dim solution As DenseVector = MyUnity.getSolutionByCond(solutions_set)
         'Dim points_list As List(Of DenseVector) = MyUnity.getPointsListBySolution(alpha_0, alpha_2, solution, r, -1)
-        MyUnity.getPointsList(alpha_0, alpha_2, L, r, angle, 1, lamda_max)
+        'MyUnity.getPointsList(alpha_0, alpha_2, L, r, angle, 1, lamda_max)
+        Dim a As DenseVector = rotMat2quatern(rotx(2))
+        Dim b As DenseVector = rotMat2quatern(rotx(30))
     End Sub
 End Module

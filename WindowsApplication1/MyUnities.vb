@@ -4,6 +4,7 @@ Imports MECMOD
 Imports HybridShapeTypeLib
 Imports SPATypeLib
 Imports INFITF
+Imports MathNet.Numerics.LinearAlgebra.Factorization
 Namespace Myunities
 
     Public Class MyUnity
@@ -24,7 +25,7 @@ Namespace Myunities
             Return frames_chusha
         End Function
         Public Shared Function getChushaPointList(partdocument1 As PartDocument, points_luosha As List(Of Point),
-                                                  curve As HybridShapeAssemble, envelop As HybridShapeScaling) As List(Of Point)
+                                                  curve As HybridShapeCurveExplicit, envelop As HybridShapeScaling) As List(Of Point)
             Dim hash_envelop As Integer = envelop.GetHashCode()
             Dim my_fact As HybridShapeFactory = partdocument1.Part.HybridShapeFactory
             Dim my_bench As SPATypeLib.SPAWorkbench = partdocument1.GetWorkbench("SPAWorkbench")
@@ -40,11 +41,11 @@ Namespace Myunities
                 tan_line = getTanLineByPointIndex(partdocument1, points_luosha, i, curve）
                 tan_line.Compute()
                 intersection_i = my_fact.AddNewIntersection(tan_line, envelop)
+                partdocument1.Part.HybridBodies.Item(1).AppendHybridShape(intersection_i)
                 intersection_i.Compute()
-                'partBody.InsertHybridShape(intersection_i)
                 near_i = my_fact.AddNewNear(intersection_i, points_luosha(i))
                 near_i.Compute()
-                'partBody.InsertHybridShape(near_i) 'near 之前要更新work object? 估计还是要先添加后删除才有效
+                partdocument1.Part.HybridBodies.Item(1).AppendHybridShape(near_i)
                 my_bench.GetMeasurable(near_i).GetPoint(pos)
                 point_i = my_fact.AddNewPointCoord(pos(0), pos(1), pos(2))
                 point_i.Compute()
@@ -57,7 +58,7 @@ Namespace Myunities
             Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
         End Function
         Public Shared Function getFrameListOnSurface(partDocument1 As PartDocument, ByRef point_list As List(Of Point),
-                                                     surface As HybridShapeAssemble, curve As HybridShapeAssemble) As List(Of DenseMatrix)
+                                                     surface As HybridShapeAssemble, curve As HybridShapeCurveExplicit) As List(Of DenseMatrix)
             Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
             Dim frame_list As List(Of DenseMatrix) = New List(Of DenseMatrix)
             Dim normal_vec As DenseVector
@@ -80,7 +81,7 @@ Namespace Myunities
         End Function
 
         Public Shared Function getTanLineByPointIndex(partDocument1 As PartDocument, point_list As List(Of Point),
-                                                      index As Integer, curve As HybridShapeAssemble) As Line
+                                                      index As Integer, curve As HybridShapeCurveExplicit) As Line
             Dim nearlyTan_vec As DenseVector
             Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
             If index = 0 Then
@@ -106,7 +107,7 @@ Namespace Myunities
         End Function
 
         Private Shared Function getTanVecByPointIndex(partDocument1 As PartDocument, point_list As List(Of Point),
-                                                      index As Integer, curve As HybridShapeAssemble) As DenseVector
+                                                      index As Integer, curve As HybridShapeCurveExplicit) As DenseVector
             Dim tan_vec As DenseVector
             Dim dir()
             ReDim dir(2)
@@ -126,6 +127,12 @@ Namespace Myunities
             Return vec
         End Function
 
+        Public Shared Function appendMatrixList(ByRef content_to As List(Of DenseMatrix), ByRef content_from As List(Of DenseMatrix)) As List(Of DenseMatrix)
+            For Each elem In content_from
+                content_to.Add(elem)
+            Next
+            Return content_to
+        End Function
         Private Shared Function getNormalVecOut(partDocument1 As PartDocument, point As Point, surface As HybridShapeAssemble) As DenseVector
             Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
             Dim line_normal As HybridShapeLineNormal = my_fact.AddNewLineNormal(surface, point, 10, 0, False)
@@ -147,7 +154,7 @@ Namespace Myunities
 
 
         Public Shared Function getPointListOnCurve(partDocument1 As PartDocument, point_begin As Point,
-                                                   curve As HybridShapeAssemble, distance As Double) As List(Of Point)
+                                                   curve As HybridShapeCurveExplicit, distance As Double) As List(Of Point)
             Dim my_fact As HybridShapeFactory = partDocument1.Part.HybridShapeFactory
             Dim false_point As HybridShapePointOnCurve = my_fact.AddNewPointOnCurveFromPercent(curve, 0, False)
             false_point.Compute()
@@ -183,7 +190,7 @@ Namespace Myunities
             For i = 0 To num_point - 1
                 Dim distance_i As Double = distance * i
                 Dim point As Point = my_fact.AddNewPointOnCurveFromDistance(curve, distance_i, flag)
-                point_list.Add(Point)
+                point_list.Add(point)
             Next
             Return point_list
         End Function
@@ -517,15 +524,32 @@ Namespace Myunities
                 Return 2 * Math.PI - angle
             End If
         End Function
-        Public Shared Function connectAngles(absolute_angles As List(Of Double)) As List(Of Double)
-            Dim connected_angles As List(Of Double) = absolute_angles
-            For i = 1 To connected_angles.Count - 1
-                Dim delta_angle As Double = absolute_angles(i) - absolute_angles(i - 1)
-                If delta_angle < Math.PI / 4 Then
-                    connected_angles(i) = connected_angles(i - 1) + delta_angle
-                Else
-                    connected_angles(i) = connected_angles(i - 1) + delta_angle + 2 * Math.PI
-                End If
+        Public Shared Function connectAngles(ByVal absolute_angles As List(Of Double)) As List(Of Double)
+            'Dim connected_angles As List(Of Double) = New List(Of Double)
+            'connected_angles.Add(absolute_angles(0))
+            'For i = 1 To absolute_angles.Count - 1
+            '    Dim delta_angle As Double = absolute_angles(i) - absolute_angles(i - 1)
+            '    If Math.Abs(delta_angle) < Math.PI Then
+            '        connected_angles.Add(connected_angles(i - 1) + delta_angle)
+            '    Else
+            '        connected_angles.Add(connected_angles(i - 1) + delta_angle + 2 * Math.PI)
+            '    End If
+            'Next
+            'Return connected_angles
+            Dim connected_angles As List(Of Double) = New List(Of Double)
+            connected_angles.Add(absolute_angles(0))
+            Dim theta_1 As Double
+            Dim theta_0 As Double
+            For i = 1 To absolute_angles.Count - 1
+                theta_1 = absolute_angles(i)
+                theta_0 = connected_angles(i - 1)
+                While theta_1 - theta_0 > Math.PI
+                    theta_1 -= Math.PI * 2
+                End While
+                While theta_1 - theta_0 < -Math.PI
+                    theta_1 += Math.PI * 2
+                End While
+                connected_angles.Add(theta_1 * 1)
             Next
             Return connected_angles
         End Function
@@ -537,6 +561,73 @@ Namespace Myunities
             result(2, 2) = Math.Cos(angle_rad)
             Return result
         End Function
+        Public Shared Function quaternion2str(vec As DenseVector) As String
+            Dim str As String
+            str = "["
+            For i = 0 To vec.Count - 1
+                str = str + vec(i).ToString()
+                If i < vec.Count - 1 Then
+                    str = str + ","
+                End If
+            Next
+            str = str + "]"
+            Return str
+        End Function
+        Public Shared Sub output(writer As System.IO.StreamWriter, angles As List(Of Double), frames As List(Of DenseMatrix))
+            Dim configration_str As String = "[0,0,0,0]"
+            Dim frame As DenseMatrix = New DenseMatrix(4)
+            Dim angle As Double
+            For i = 0 To angles.Count - 1
+                frame = frames(i)
+                angle = angles(i)
+                Dim quaternion_str As String = "[0.70711,0,0,-0.70711]" 'quaternion2str(rotMat2quatern(frame)) 0.70711 < 0, 0, -0.70711 >
+                Dim pos_str As String = "[" + frame(0, 3).ToString() + "," + frame(1, 3).ToString() + "," + frame(2, 3).ToString() + "]"
+                Dim angle_str As String = "[" + (angle * 180 / Math.PI / 10).ToString() + "*(-1),9E+09,9E+09,9E+09,9E+09,9E+09]"
+                Dim data_str As String = "[" + pos_str + "," + quaternion_str + "," + configration_str + "," + angle_str + "]"
+                If i = 0 Then
+                    writer.WriteLine("[")
+                    writer.WriteLine(data_str + ",")
+                    Continue For
+                End If
+                If i = angles.Count - 1 Then
+                    writer.WriteLine(data_str)
+                    writer.WriteLine("];")
+                    writer.WriteLine("Total:" + angles.Count.ToString())
+                    writer.WriteLine("angle:" + ((angles(angles.Count - 1) - angles(0)) * 180 / Math.PI / 10).ToString() + "*10")
+                    Continue For
+                End If
+                writer.WriteLine(data_str + ",")
+            Next
+        End Sub
+
+        Public Shared Function rotMat2quatern(R As DenseMatrix) As DenseVector
+            Dim K As DenseMatrix = New DenseMatrix(4)
+            K(0, 0) = (1 / 3) * (R(0, 0) - R(1, 1) - R(2, 2))
+            K(0, 1) = (1 / 3) * (R(1, 0) + R(0, 1))
+            K(0, 2) = (1 / 3) * (R(2, 0) + R(0, 2))
+            K(0, 3) = (1 / 3) * (R(1, 2) - R(2, 1))
+            K(1, 0) = (1 / 3) * (R(1, 0) + R(0, 1))
+            K(1, 1) = (1 / 3) * (R(1, 1) - R(0, 0) - R(2, 2))
+            K(1, 2) = (1 / 3) * (R(2, 1) + R(1, 2))
+            K(1, 3) = (1 / 3) * (R(2, 0) - R(0, 2))
+            K(2, 0) = (1 / 3) * (R(2, 0) + R(0, 2))
+            K(2, 1) = (1 / 3) * (R(2, 1) + R(1, 2))
+            K(2, 2) = (1 / 3) * (R(2, 2) - R(0, 0) - R(1, 1))
+            K(2, 3) = (1 / 3) * (R(0, 1) - R(1, 0))
+            K(3, 0) = (1 / 3) * (R(1, 2) - R(2, 1))
+            K(3, 1) = (1 / 3) * (R(2, 0) - R(0, 2))
+            K(3, 2) = (1 / 3) * (R(0, 1) - R(1, 0))
+            K(3, 3) = (1 / 3) * (R(0, 0) + R(1, 1) + R(2, 2))
+            Dim e As Evd(Of Double) = K.Evd()
+            Dim v As DenseMatrix = e.EigenVectors
+            Dim q As DenseVector = New DenseVector(4)
+            q(0) = v(3, 3)
+            q(1) = v(0, 3)
+            q(2) = v(1, 3)
+            q(3) = v(2, 3)
+            Return q
+        End Function
+
     End Class
 
 End Namespace
