@@ -86,6 +86,7 @@ Partial Class Form1
         Me.Button4.TabIndex = 5
         Me.Button4.Text = "输出运动数据"
         Me.Button4.UseVisualStyleBackColor = True
+        Me.Button4.UseWaitCursor = True
         '
         'Form1
         '
