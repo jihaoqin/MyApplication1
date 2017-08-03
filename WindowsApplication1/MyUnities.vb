@@ -26,6 +26,7 @@ Namespace Myunities
         End Function
         Public Shared Function getChushaPointList(partdocument1 As PartDocument, points_luosha As List(Of Point),
                                                   curve As HybridShapeCurveExplicit, envelop As HybridShapeScaling) As List(Of Point)
+            Dim hybridBody As HybridBody = partdocument1.Part.HybridBodies.Add()
             Dim hash_envelop As Integer = envelop.GetHashCode()
             Dim my_fact As HybridShapeFactory = partdocument1.Part.HybridShapeFactory
             Dim my_bench As SPATypeLib.SPAWorkbench = partdocument1.GetWorkbench("SPAWorkbench")
@@ -41,11 +42,13 @@ Namespace Myunities
                 tan_line = getTanLineByPointIndex(partdocument1, points_luosha, i, curve）
                 tan_line.Compute()
                 intersection_i = my_fact.AddNewIntersection(tan_line, envelop)
-                partdocument1.Part.HybridBodies.Item(1).AppendHybridShape(intersection_i)
+                'partdocument1.Part.HybridBodies.Item(1).AppendHybridShape(intersection_i)
+                hybridBody.AppendHybridShape(intersection_i)
                 intersection_i.Compute()
                 near_i = my_fact.AddNewNear(intersection_i, points_luosha(i))
                 near_i.Compute()
-                partdocument1.Part.HybridBodies.Item(1).AppendHybridShape(near_i)
+                'partdocument1.Part.HybridBodies.Item(1).AppendHybridShape(near_i)
+                hybridBody.AppendHybridShape(near_i)
                 my_bench.GetMeasurable(near_i).GetPoint(pos)
                 point_i = my_fact.AddNewPointCoord(pos(0), pos(1), pos(2))
                 point_i.Compute()

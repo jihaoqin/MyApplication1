@@ -82,7 +82,6 @@ Imports CATIA_APP_ITF
 Imports AECRTypeLib
 Imports System.IO
 Imports MathNet.Numerics.LinearAlgebra.Double
-Imports tools
 Imports System
 Imports WindowsApplication1.Myunities
 Imports WindowsApplication1.Myunities.MyUnity
@@ -127,12 +126,16 @@ Public Class Form1
         ' 获取初始条件
         Dim myselection As Selection
         Dim axisCyc As HybridShapeAxisLine
+        Dim selection_state As String
         myselection = partDocument1.Selection
         myselection.Clear()
         Dim sFilter
         ReDim sFilter(0)
         sFilter(0) = "HybridShapeAxisLine"
-        myselection.SelectElement2(sFilter, "请选择轴线", False)
+        selection_state = myselection.SelectElement2(sFilter, "请选择轴线", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         axisCyc = myselection.Item(1).Value
 
         Dim Workbench As SPAWorkbench = partDocument1.GetWorkbench("SPAWorkbench")
@@ -147,14 +150,20 @@ Public Class Form1
 
         myselection.Clear()
         sFilter(0) = "ZeroDim"
-        myselection.SelectElement2(sFilter, "请选择起点", False)
+        selection_state = myselection.SelectElement2(sFilter, "请选择起点", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         Dim point_begin As Object = myselection.Item(1).Value
         Dim pos_pointb(2)
         Workbench.GetMeasurable(point_begin).GetPoint(pos_pointb)
         Dim pb As DenseVector = DenseVector.OfArray(New Double() {pos_pointb(0), pos_pointb(1), pos_pointb(2)})
         myselection.Clear()
         sFilter(0) = "MonoDim"
-        myselection.SelectElement2(sFilter, "请选择起点方向", False)
+        selection_state = myselection.SelectElement2(sFilter, "请选择起点方向", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         Dim line_b As Line = myselection.Item(1).Value
         Dim direction_b(2)
         Workbench.GetMeasurable(line_b).GetDirection(direction_b)
@@ -163,14 +172,20 @@ Public Class Form1
 
         myselection.Clear()
         sFilter(0) = "ZeroDim"
-        myselection.SelectElement2(sFilter, "请选择终点", False)
+        selection_state = myselection.SelectElement2(sFilter, "请选择终点", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         Dim point_end As Object = myselection.Item(1).Value
         Dim pos_pointe(2)
         Workbench.GetMeasurable(point_end).GetPoint(pos_pointe)
         Dim pe As DenseVector = DenseVector.OfArray(New Double() {pos_pointe(0), pos_pointe(1), pos_pointe(2)})
         myselection.Clear()
         sFilter(0) = "MonoDim"
-        myselection.SelectElement2(sFilter, "请选择终点方向", False)
+        selection_state = myselection.SelectElement2(sFilter, "请选择终点方向", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         Dim line_e As Line = myselection.Item(1).Value
         Dim direction_e(2)
         Workbench.GetMeasurable(line_e).GetDirection(direction_e)
@@ -178,7 +193,10 @@ Public Class Form1
 
         myselection.Clear()
         sFilter(0) = "BiDim"
-        myselection.SelectElement2(sFilter, "请选择支撑面", False)
+        selection_state = myselection.SelectElement2(sFilter, "请选择支撑面", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         Dim support_spline As HybridShapeAssemble = myselection.Item(1).Value
         '------------------
 
@@ -258,22 +276,35 @@ Public Class Form1
         Dim sFilter(0)
         my_selection.Clear()
         sFilter(0) = "HybridBody"
-        my_selection.SelectElement2(sFilter, "请选择曲线的集合", False)
+        Dim selection_state As String
+        selection_state = my_selection.SelectElement2(sFilter, "请选择曲线的集合", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         curves_set = my_selection.Item(1).Value
 
-        my_selection.Clear()
+            my_selection.Clear()
         sFilter(0) = "Point"
-        my_selection.SelectElement2(sFilter, "请选择曲线的起始点", False)
+        selection_state = my_selection.SelectElement2(sFilter, "请选择曲线的起始点", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         Dim point_0 As Point = my_selection.Item(1).Value
 
 
         my_selection.Clear()
         sFilter(0) = "BiDim"
-        my_selection.SelectElement2(sFilter, "请选择芯模面", False)
+        selection_state = my_selection.SelectElement2(sFilter, "请选择芯模面", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         Dim mandrel As HybridShapeAssemble = my_selection.Item(1).Value
 
         my_selection.Clear()
-        my_selection.SelectElement2(sFilter, "请选择出纱点包络面", False)
+        selection_state = my_selection.SelectElement2(sFilter, "请选择出纱点包络面", False)
+        If selection_state = "Cancel" Then
+            Exit Sub
+        End If
         Dim envelope As HybridShapeScaling = my_selection.Item(1).Value
 
         Dim points_luosha_segment As List(Of Point) = New List(Of Point)
